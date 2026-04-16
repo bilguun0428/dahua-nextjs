@@ -6,12 +6,8 @@ import { db } from "./firebase";
 import { useAuth } from "./auth-context";
 import type { NewsItem } from "./types";
 
-const STORAGE_PREFIX = "promo_popup_seen_";
-
-function todayKey(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+// Popup нь мэдээ үүсгэснээс хойш энэ хугацааны турш харагдана
+const POPUP_DURATION_MS = 3 * 24 * 60 * 60 * 1000; // 3 өдөр
 
 export function PromoPopup() {
   const { user } = useAuth();
@@ -33,10 +29,10 @@ export function PromoPopup() {
       const latest = items[0];
       if (!latest || !latest.id) return;
 
-      // Өдөрт 1 удаа: localStorage-д <id>_<today> түлхүүрээр хадгална
-      const key = `${STORAGE_PREFIX}${latest.id}_${todayKey()}`;
-      if (typeof window !== "undefined" && window.localStorage.getItem(key)) return;
+      // Мэдээ үүсгэснээс хойш 3 өдөр өнгөрсөн бол popup гаргахгүй
+      if (Date.now() - latest.createdAt > POPUP_DURATION_MS) return;
 
+      // 3 өдрийн турш нэвтрэх бүрт харуулна (localStorage check хийхгүй)
       setPopup(latest);
     })();
 
@@ -46,10 +42,6 @@ export function PromoPopup() {
   }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleClose = () => {
-    if (popup?.id && typeof window !== "undefined") {
-      const key = `${STORAGE_PREFIX}${popup.id}_${todayKey()}`;
-      window.localStorage.setItem(key, "1");
-    }
     setPopup(null);
   };
 
