@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useAuth } from "./auth-context";
 import type { CartItem } from "./types";
 
 interface CartCtx {
@@ -25,6 +26,12 @@ const CartContext = createContext<CartCtx>({
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const { user } = useAuth();
+
+  // Clear cart when user changes (login/logout/switch account) to avoid data leak across users
+  useEffect(() => {
+    setItems([]);
+  }, [user?.uid]);
 
   const addItem = (item: Omit<CartItem, "qty">, qty = 1) => {
     setItems((prev) => {

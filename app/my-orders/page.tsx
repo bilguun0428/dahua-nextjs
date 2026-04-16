@@ -20,11 +20,19 @@ export default function MyOrdersPage() {
 
   useEffect(() => {
     if (!user) return;
+    setLoading(true);
     Promise.all([
-      getDocs(query(collection(db, "orders"), orderBy("createdAt", "desc"))),
+      getDocs(query(collection(db, "orders"), where("userId", "==", user.uid))),
       getDocs(query(collection(db, "holds"), where("userId", "==", user.uid))),
     ]).then(([orderSnap, holdSnap]) => {
-      setOrders(orderSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Order)));
+      const userOrders = orderSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as Order))
+        .sort((a, b) => {
+          const ta = a.createdAt instanceof Date ? a.createdAt.getTime() : ((a.createdAt as unknown as { seconds: number })?.seconds ?? 0) * 1000;
+          const tb = b.createdAt instanceof Date ? b.createdAt.getTime() : ((b.createdAt as unknown as { seconds: number })?.seconds ?? 0) * 1000;
+          return tb - ta;
+        });
+      setOrders(userOrders);
       setHolds(holdSnap.docs.map((d) => ({ id: d.id, ...d.data() } as HoldItem)).sort((a, b) => b.createdAt - a.createdAt));
       setLoading(false);
     });
