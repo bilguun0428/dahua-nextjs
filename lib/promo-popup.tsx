@@ -53,32 +53,34 @@ export function PromoPopup() {
       onClick={handleClose}
     >
       <div
-        className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-scaleIn"
+        className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl animate-scaleIn relative"
         onClick={(e) => e.stopPropagation()}
       >
+        <button
+          onClick={handleClose}
+          className="absolute top-3 right-3 z-10 w-9 h-9 flex items-center justify-center rounded-full bg-white/90 hover:bg-white text-gray-600 hover:text-gray-900 text-2xl leading-none shadow-md"
+          aria-label="Хаах"
+        >
+          &times;
+        </button>
         {popup.image && (
-          <div
-            className="h-56 bg-cover bg-center rounded-t-2xl"
-            style={{ backgroundImage: `url(${popup.image})` }}
-          />
+          <div className="w-full bg-gray-50 rounded-t-2xl flex items-center justify-center overflow-hidden flex-shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={popup.image}
+              alt={popup.title}
+              className="w-full max-h-[45vh] object-contain"
+            />
+          </div>
         )}
-        <div className="p-6">
-          <div className="flex items-start justify-between mb-4 gap-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-pink-100 text-pink-700">
-                🎉 Урамшуулал
-              </span>
-              <span className="text-xs text-gray-400">
-                {new Date(popup.createdAt).toLocaleDateString("mn-MN")}
-              </span>
-            </div>
-            <button
-              onClick={handleClose}
-              className="text-gray-400 hover:text-gray-700 text-2xl leading-none"
-              aria-label="Хаах"
-            >
-              &times;
-            </button>
+        <div className="p-6 overflow-y-auto">
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-pink-100 text-pink-700">
+              🎉 Урамшуулал
+            </span>
+            <span className="text-xs text-gray-400">
+              {new Date(popup.createdAt).toLocaleDateString("mn-MN")}
+            </span>
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-3">{popup.title}</h2>
           <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
