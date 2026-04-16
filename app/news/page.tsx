@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getCachedDocs } from "@/lib/firestore-cache";
 import type { NewsItem } from "@/lib/types";
 
 export default function NewsPage() {
@@ -12,8 +11,8 @@ export default function NewsPage() {
   const [selected, setSelected] = useState<NewsItem | null>(null);
 
   useEffect(() => {
-    getDocs(query(collection(db, "news"), orderBy("createdAt", "desc")))
-      .then((snap) => setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() } as NewsItem))))
+    getCachedDocs<NewsItem>("news")
+      .then((arr) => setItems([...arr].sort((a, b) => b.createdAt - a.createdAt)))
       .finally(() => setLoading(false));
   }, []);
 

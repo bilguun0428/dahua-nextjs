@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { mergeStockItems } from "@/lib/data";
+import { getCachedDocs } from "@/lib/firestore-cache";
 import { catMN, typeMN, QUICK_CATEGORIES } from "@/lib/types";
 import type { Product, InventoryItem, StockItem, HoldItem, Bundle } from "@/lib/types";
 import { useCart } from "@/lib/cart-context";
@@ -67,22 +66,22 @@ export default function Home() {
   useEffect(() => {
     async function load() {
       try {
-        const [prodSnap, invSnap, specSnap, holdsSnap, bundleSnap] = await Promise.all([
-          getDocs(collection(db, "products")),
-          getDocs(collection(db, "inventory")),
-          getDocs(collection(db, "stockSpecs")),
-          getDocs(collection(db, "holds")),
-          getDocs(collection(db, "bundles")),
+        const [prodArr, invArr, specArr, holdsArr, bundleArr] = await Promise.all([
+          getCachedDocs<Product & { id: string }>("products"),
+          getCachedDocs<InventoryItem & { id: string }>("inventory"),
+          getCachedDocs<Partial<StockItem> & { id: string }>("stockSpecs"),
+          getCachedDocs<HoldItem>("holds"),
+          getCachedDocs<Bundle>("bundles"),
         ]);
-        setProducts(prodSnap.docs.map((d) => d.data() as Product));
+        setProducts(prodArr as Product[]);
         const inv: Record<string, InventoryItem> = {};
-        invSnap.docs.forEach((d) => (inv[d.id] = d.data() as InventoryItem));
+        invArr.forEach((d) => (inv[d.id] = d as InventoryItem));
         setInventory(inv);
         const specs: Record<string, Partial<StockItem>> = {};
-        specSnap.docs.forEach((d) => (specs[d.id] = d.data() as Partial<StockItem>));
+        specArr.forEach((d) => (specs[d.id] = d as Partial<StockItem>));
         setStockSpecs(specs);
-        setHolds(holdsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as HoldItem)));
-        setBundles(bundleSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Bundle)).filter(b => b.active));
+        setHolds(holdsArr as HoldItem[]);
+        setBundles((bundleArr as Bundle[]).filter((b) => b.active));
       } catch (err) {
         console.error("Firebase load error:", err);
       } finally {

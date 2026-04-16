@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { where } from "firebase/firestore";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast";
 import { cancelHold } from "@/lib/data";
+import { getCachedDocs } from "@/lib/firestore-cache";
 import type { Order, HoldItem } from "@/lib/types";
 
 type Tab = "all" | "orders" | "holds" | "invoices";
@@ -22,18 +22,16 @@ export default function MyOrdersPage() {
     if (!user) return;
     setLoading(true);
     Promise.all([
-      getDocs(query(collection(db, "orders"), where("userId", "==", user.uid))),
-      getDocs(query(collection(db, "holds"), where("userId", "==", user.uid))),
-    ]).then(([orderSnap, holdSnap]) => {
-      const userOrders = orderSnap.docs
-        .map((d) => ({ id: d.id, ...d.data() } as Order))
-        .sort((a, b) => {
-          const ta = a.createdAt instanceof Date ? a.createdAt.getTime() : ((a.createdAt as unknown as { seconds: number })?.seconds ?? 0) * 1000;
-          const tb = b.createdAt instanceof Date ? b.createdAt.getTime() : ((b.createdAt as unknown as { seconds: number })?.seconds ?? 0) * 1000;
-          return tb - ta;
-        });
+      getCachedDocs<Order>("orders", `orders:${user.uid}`, 60_000, where("userId", "==", user.uid)),
+      getCachedDocs<HoldItem>("holds", `holds:${user.uid}`, 60_000, where("userId", "==", user.uid)),
+    ]).then(([orderArr, holdArr]) => {
+      const userOrders = [...orderArr].sort((a, b) => {
+        const ta = a.createdAt instanceof Date ? a.createdAt.getTime() : ((a.createdAt as unknown as { seconds: number })?.seconds ?? 0) * 1000;
+        const tb = b.createdAt instanceof Date ? b.createdAt.getTime() : ((b.createdAt as unknown as { seconds: number })?.seconds ?? 0) * 1000;
+        return tb - ta;
+      });
       setOrders(userOrders);
-      setHolds(holdSnap.docs.map((d) => ({ id: d.id, ...d.data() } as HoldItem)).sort((a, b) => b.createdAt - a.createdAt));
+      setHolds([...holdArr].sort((a, b) => b.createdAt - a.createdAt));
       setLoading(false);
     });
   }, [user]);

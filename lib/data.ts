@@ -11,6 +11,7 @@ import {
   addDoc,
 } from "firebase/firestore";
 import { db } from "./firebase";
+import { invalidateCache } from "./firestore-cache";
 import type { Product, InventoryItem, StockItem, Order, CartItem, HoldItem } from "./types";
 
 // ---- Products ----
@@ -35,14 +36,17 @@ export async function updateInventoryItem(
   updates: Partial<InventoryItem>
 ) {
   await updateDoc(doc(db, "inventory", model), updates);
+  invalidateCache("inventory");
 }
 
 export async function setInventoryItem(model: string, item: InventoryItem) {
   await setDoc(doc(db, "inventory", model), item);
+  invalidateCache("inventory");
 }
 
 export async function deleteInventoryItem(model: string) {
   await deleteDoc(doc(db, "inventory", model));
+  invalidateCache("inventory");
 }
 
 // ---- Stock Specs (overrides for inventory items missing catalog match) ----
@@ -114,6 +118,7 @@ export async function createOrder(order: Omit<Order, "id">) {
     ...order,
     createdAt: new Date(),
   });
+  invalidateCache("orders", "inventory");
   return ref.id;
 }
 
@@ -127,6 +132,7 @@ export async function getOrders(): Promise<Order[]> {
 // ---- Holds (7 day reservation) ----
 export async function createHold(hold: Omit<HoldItem, "id">) {
   const ref = await addDoc(collection(db, "holds"), hold);
+  invalidateCache("holds");
   return ref.id;
 }
 
@@ -147,4 +153,5 @@ export async function getUserHolds(userId: string): Promise<HoldItem[]> {
 
 export async function cancelHold(holdId: string) {
   await updateDoc(doc(db, "holds", holdId), { status: "expired" });
+  invalidateCache("holds");
 }
