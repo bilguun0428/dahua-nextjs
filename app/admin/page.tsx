@@ -42,7 +42,7 @@ export default function AdminPage() {
   // --- News state ---
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [showNewsAdd, setShowNewsAdd] = useState(false);
-  const [newsForm, setNewsForm] = useState({ title: "", body: "", type: "news" as "news" | "faq", pinned: false, image: "" });
+  const [newsForm, setNewsForm] = useState({ title: "", body: "", type: "news" as "news" | "faq", pinned: false, image: "", isPopup: false });
   const [editNewsId, setEditNewsId] = useState<string | null>(null);
   // --- Holds state ---
   const [holds, setHolds] = useState<HoldItem[]>([]);
@@ -115,11 +115,11 @@ export default function AdminPage() {
     if (!newsForm.title.trim()) return;
     setSaving(true);
     await addDoc(collection(db, "news"), { ...newsForm, createdAt: Date.now() });
-    setShowNewsAdd(false); setNewsForm({ title: "", body: "", type: "news", pinned: false, image: "" }); await loadNews(); setSaving(false);
+    setShowNewsAdd(false); setNewsForm({ title: "", body: "", type: "news", pinned: false, image: "", isPopup: false }); await loadNews(); setSaving(false);
   }
   async function handleNewsUpdate(id: string) {
     setSaving(true);
-    await updateDoc(doc(db, "news", id), { title: newsForm.title, body: newsForm.body, type: newsForm.type, pinned: newsForm.pinned, image: newsForm.image || "" });
+    await updateDoc(doc(db, "news", id), { title: newsForm.title, body: newsForm.body, type: newsForm.type, pinned: newsForm.pinned, image: newsForm.image || "", isPopup: newsForm.isPopup });
     setEditNewsId(null); await loadNews(); setSaving(false);
   }
   async function handleNewsDelete(id: string) {
@@ -365,7 +365,7 @@ export default function AdminPage() {
           <>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold text-gray-800">Мэдээ / FAQ ({newsItems.length})</h2>
-              <button onClick={() => { setShowNewsAdd(true); setEditNewsId(null); setNewsForm({ title: "", body: "", type: "news", pinned: false, image: "" }); }} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">+ Шинэ мэдээ</button>
+              <button onClick={() => { setShowNewsAdd(true); setEditNewsId(null); setNewsForm({ title: "", body: "", type: "news", pinned: false, image: "", isPopup: false }); }} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">+ Шинэ мэдээ</button>
             </div>
             {(showNewsAdd || editNewsId) && (
               <div className="bg-white border-2 border-blue-200 rounded-xl p-4 mb-4">
@@ -381,6 +381,9 @@ export default function AdminPage() {
                     </select>
                     <label className="flex items-center gap-2 text-sm cursor-pointer">
                       <input type="checkbox" checked={newsForm.pinned} onChange={(e) => setNewsForm({ ...newsForm, pinned: e.target.checked })} className="w-4 h-4 rounded" />📌 Чухал
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="checkbox" checked={newsForm.isPopup} onChange={(e) => setNewsForm({ ...newsForm, isPopup: e.target.checked })} className="w-4 h-4 rounded" />🎉 Popup (нэвтрэхэд гарна)
                     </label>
                   </div>
                 </div>
@@ -400,6 +403,7 @@ export default function AdminPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           {item.pinned && <span className="text-xs font-bold text-yellow-700 bg-yellow-200 px-2 py-0.5 rounded-full">📌</span>}
+                          {item.isPopup && <span className="text-xs font-bold text-pink-700 bg-pink-200 px-2 py-0.5 rounded-full">🎉 Popup</span>}
                           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.type === "news" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>{item.type === "news" ? "📰" : "❓"}</span>
                           <span className="text-xs text-gray-400">{new Date(item.createdAt).toLocaleDateString("mn-MN")}</span>
                         </div>
@@ -407,7 +411,7 @@ export default function AdminPage() {
                         <p className="text-xs text-gray-500 mt-1 line-clamp-2">{item.body}</p>
                       </div>
                       <div className="flex gap-1">
-                        <button onClick={() => { setEditNewsId(item.id!); setShowNewsAdd(false); setNewsForm({ title: item.title, body: item.body, type: item.type, pinned: item.pinned || false, image: item.image || "" }); }} className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold hover:bg-blue-200">✏️</button>
+                        <button onClick={() => { setEditNewsId(item.id!); setShowNewsAdd(false); setNewsForm({ title: item.title, body: item.body, type: item.type, pinned: item.pinned || false, image: item.image || "", isPopup: item.isPopup || false }); }} className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold hover:bg-blue-200">✏️</button>
                         <button onClick={() => handleNewsDelete(item.id!)} className="px-3 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold hover:bg-red-200">🗑️</button>
                       </div>
                     </div>

@@ -142,4 +142,5 @@ export interface NewsItem {
   image?: string; // URL
   createdAt: number;
   pinned?: boolean;
+  isPopup?: boolean; // Нэвтэрсэн хэрэглэгчид popup хэлбэрээр харуулах уу
 }

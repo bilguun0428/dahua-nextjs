@@ -6,6 +6,7 @@ import { CartProvider } from "@/lib/cart-context";
 import { ToastProvider } from "@/lib/toast";
 import { AuthGuard } from "@/lib/auth-guard";
 import { Navbar } from "@/lib/navbar";
+import { PromoPopup } from "@/lib/promo-popup";
 
 const PUBLIC_PATHS = ["/login"];
 
@@ -33,6 +34,7 @@ function Inner({ children }: { children: React.ReactNode }) {
     <AuthGuard>
       <Navbar />
       {children}
+      <PromoPopup />
     </AuthGuard>
   );
 }
