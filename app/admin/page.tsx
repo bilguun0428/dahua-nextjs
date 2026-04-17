@@ -8,6 +8,7 @@ import { initializeApp, deleteApp } from "firebase/app";
 import { auth } from "@/lib/firebase";
 import type { InventoryItem, NewsItem, HoldItem } from "@/lib/types";
 import { cancelHold } from "@/lib/data";
+import { invalidateCache } from "@/lib/firestore-cache";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast";
 
@@ -62,6 +63,9 @@ export default function AdminPage() {
   const [userMsg, setUserMsg] = useState("");
   const [editUserId, setEditUserId] = useState<string | null>(null);
   const [editUserForm, setEditUserForm] = useState({ name: "", role: "user" });
+  // --- Mogul Sync state ---
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ synced: number; skipped: number; total: number } | null>(null);
 
   async function loadInventory() {
     const snap = await getDocs(collection(db, "inventory"));
@@ -93,6 +97,30 @@ export default function AdminPage() {
   }
 
   useEffect(() => { loadInventory(); loadNews(); loadHolds(); loadOrders(); loadBundles(); loadUsers(); }, []);
+
+  // --- Mogul Sync handler ---
+  async function handleMogulSync() {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/mogul-sync", {
+        method: "POST",
+        headers: { "x-admin-uid": "admin" },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSyncResult({ synced: data.synced, skipped: data.skipped, total: data.total });
+        invalidateCache("inventory");
+        await loadInventory();
+      } else {
+        alert("Sync алдаа: " + (data.error || "Unknown error"));
+      }
+    } catch (err) {
+      alert("Sync алдаа: " + String(err));
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   // --- Inventory handlers ---
   async function handleSave(model: string) {
@@ -213,6 +241,34 @@ export default function AdminPage() {
                 <div className="bg-white rounded-xl border p-4"><div className="text-xs text-gray-500 mb-1">Агуулахын нийт үнэ цэнэ</div><div className="text-2xl font-extrabold text-blue-700">₮{totalStockValue.toLocaleString()}</div></div>
                 <div className="bg-white rounded-xl border p-4"><div className="text-xs text-gray-500 mb-1">Дундаж захиалга</div><div className="text-2xl font-extrabold text-gray-700">{orders.length > 0 ? `₮${Math.round(totalRevenue / orders.length).toLocaleString()}` : "—"}</div></div>
               </div>
+              {/* Mogul Sync */}
+              <div className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-5">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-blue-900">🔄 Mogul Sync</h3>
+                    <p className="text-xs text-blue-600 mt-0.5">Mogul системээс бараа, үнэ, нөөцийг шинэчлэх</p>
+                  </div>
+                  <button
+                    onClick={handleMogulSync}
+                    disabled={syncing}
+                    className="px-5 py-2.5 bg-blue-700 text-white rounded-xl text-sm font-bold hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {syncing ? (
+                      <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Sync хийж байна...</>
+                    ) : (
+                      "🔄 Mogul-оос шинэчлэх"
+                    )}
+                  </button>
+                </div>
+                {syncResult && (
+                  <div className="mt-3 bg-white rounded-lg p-3 text-sm">
+                    <span className="text-green-700 font-bold">✅ Амжилттай!</span>
+                    <span className="text-gray-600 ml-2">{syncResult.synced}/{syncResult.total} бүтээгдэхүүн шинэчлэгдсэн</span>
+                    {syncResult.skipped > 0 && <span className="text-orange-600 ml-2">({syncResult.skipped} алгассан)</span>}
+                  </div>
+                )}
+              </div>
+
               {/* Recent orders */}
               {orders.length > 0 && (
                 <div className="mt-6">
