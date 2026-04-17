@@ -110,12 +110,25 @@ export default function AdminPage() {
   useEffect(() => { loadInventory(); loadNews(); loadHolds(); loadOrders(); loadBundles(); loadUsers(); loadSyncStatus(); }, []);
 
   // --- Mogul Sync handler ---
-  async function handleRefreshSync() {
+  async function handleMogulSync() {
     setSyncing(true);
-    await loadSyncStatus();
-    invalidateCache("inventory");
-    await loadInventory();
-    setSyncing(false);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/mogul-sync", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setSyncResult({ synced: data.synced, skipped: data.skipped, total: data.total });
+        setLastSyncTime(Date.now());
+        invalidateCache("inventory");
+        await loadInventory();
+      } else {
+        alert("Sync алдаа: " + (data.error || "") + "\n" + (data.details || ""));
+      }
+    } catch (err) {
+      alert("Sync алдаа: " + String(err) + "\n\nNetlify дээр ажиллахгүй.\nТерминалд: npm run sync\nЭсвэл: npm run dev → localhost:3000/admin → Sync товч");
+    } finally {
+      setSyncing(false);
+    }
   }
 
   // --- Inventory handlers ---
@@ -242,20 +255,20 @@ export default function AdminPage() {
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div>
                     <h3 className="text-sm font-bold text-blue-900">🔄 Mogul Sync</h3>
-                    <p className="text-xs text-blue-600 mt-0.5">Терминалаас: <code className="bg-blue-100 px-1.5 py-0.5 rounded text-blue-800 font-mono">node scripts/mogul-sync.mjs</code></p>
+                    <p className="text-xs text-blue-600 mt-0.5">Mogul системээс бараа, үнэ, нөөцийг шинэчлэх</p>
                     {lastSyncTime && (
                       <p className="text-xs text-gray-500 mt-1">Сүүлд sync хийсэн: {new Date(lastSyncTime).toLocaleString("mn-MN")}</p>
                     )}
                   </div>
                   <button
-                    onClick={handleRefreshSync}
+                    onClick={handleMogulSync}
                     disabled={syncing}
                     className="px-5 py-2.5 bg-blue-700 text-white rounded-xl text-sm font-bold hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {syncing ? (
                       <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Шинэчилж байна...</>
                     ) : (
-                      "🔄 Шинэчлэх"
+                      "🔄 Mogul Sync"
                     )}
                   </button>
                 </div>

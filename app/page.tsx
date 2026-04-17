@@ -458,10 +458,10 @@ export default function Home() {
                         <div className="text-base font-extrabold text-blue-700 mb-1.5">₮{s.priceMNT.toLocaleString()}</div>
                       )}
                       <div className="flex flex-wrap gap-1 min-h-[1.25rem]">
-                        {s.type && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-50 text-amber-700">{typeMN[s.type] || s.type}</span>}
-                        {s.mp && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-50 text-emerald-700">{s.mp}MP</span>}
-                        {s.ir && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-purple-50 text-purple-700">IR{s.ir}м</span>}
-                        {s.ip && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-sky-50 text-sky-700">{s.ip}</span>}
+                        {s.type && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold text-gray-500">{typeMN[s.type] || s.type}</span>}
+                        {s.mp && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold text-gray-500">{s.mp}MP</span>}
+                        {s.ir && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold text-gray-500">IR{s.ir}м</span>}
+                        {s.ip && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold text-gray-500">{s.ip}</span>}
                       </div>
                       <div className="flex-1 min-h-0"></div>
                       <div className="flex items-center gap-1.5 mt-auto pt-2" onClick={(e) => e.stopPropagation()}>
