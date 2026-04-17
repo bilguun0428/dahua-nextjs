@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { doc, setDoc, collection, getDocs, deleteDoc } from "firebase/firestore";
+import { doc, setDoc, collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { invalidateCache } from "@/lib/firestore-cache";
+
+// Self-signed cert bypass (Mogul серверт хэрэгтэй)
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 const MOGUL_BASE = "https://green.mogul.mn:8988";
 const LOGIN_BODY = {
@@ -148,10 +151,11 @@ export async function POST(req: NextRequest) {
       total: mogulItems.length,
       existingBefore: existingModels.size,
     });
-  } catch (err) {
-    console.error("Mogul sync error:", err);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
+    console.error("Mogul sync error:", msg);
     return NextResponse.json(
-      { error: "Internal server error", details: String(err) },
+      { error: "Internal server error", details: msg },
       { status: 500 }
     );
   }

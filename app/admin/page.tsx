@@ -113,7 +113,7 @@ export default function AdminPage() {
         invalidateCache("inventory");
         await loadInventory();
       } else {
-        alert("Sync алдаа: " + (data.error || "Unknown error"));
+        alert("Sync алдаа: " + (data.error || "Unknown error") + "\n" + (data.details || ""));
       }
     } catch (err) {
       alert("Sync алдаа: " + String(err));
