@@ -422,17 +422,17 @@ export default function Home() {
                       key={s.model}
                       onClick={() => setSelectedItem(s)}
                       className={`bg-white rounded-xl border p-3 hover:shadow-lg cursor-pointer transition-all flex flex-col overflow-hidden ${s.discount ? "border-red-200 ring-1 ring-red-100" : "border-gray-100 hover:border-blue-200"}`}
-                      style={{ height: "330px" }}
+                      style={{ height: "290px" }}
                     >
                       {/* IMAGE AREA */}
-                      <div className="relative -mx-3 -mt-3 mb-2 h-28 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
+                      <div className="relative -mx-3 -mt-3 mb-2 h-20 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
                         {(() => {
                           const img = getProductImage(s.fullModel || s.model, s.name);
                           return img ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={img} alt={s.model} className="max-h-24 max-w-[75%] object-contain drop-shadow-sm" />
+                            <img src={img} alt={s.model} className="max-h-16 max-w-[65%] object-contain drop-shadow-sm" />
                           ) : (
-                            <div className="text-4xl opacity-60">{getProductIcon(s.type, s.cat)}</div>
+                            <div className="text-3xl opacity-60">{getProductIcon(s.type, s.cat)}</div>
                           );
                         })()}
                         {/* BADGES */}
