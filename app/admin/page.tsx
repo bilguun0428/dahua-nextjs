@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, doc, updateDoc, setDoc, deleteDoc, addDoc, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, updateDoc, setDoc, deleteDoc, addDoc, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { createUserWithEmailAndPassword, getAuth } from "firebase/auth";
 import { initializeApp, deleteApp } from "firebase/app";
@@ -9,6 +9,7 @@ import { auth } from "@/lib/firebase";
 import type { InventoryItem, NewsItem, HoldItem } from "@/lib/types";
 import { cancelHold } from "@/lib/data";
 import { invalidateCache } from "@/lib/firestore-cache";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast";
 
@@ -66,6 +67,7 @@ export default function AdminPage() {
   // --- Mogul Sync state ---
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ synced: number; skipped: number; total: number } | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
 
   async function loadInventory() {
     const snap = await getDocs(collection(db, "inventory"));
@@ -96,58 +98,24 @@ export default function AdminPage() {
     setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() } as {id:string;email:string;name?:string;role?:string;createdAt?:number})).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)));
   }
 
-  useEffect(() => { loadInventory(); loadNews(); loadHolds(); loadOrders(); loadBundles(); loadUsers(); }, []);
-
-  // --- Mogul Sync handler ---
-  function extractModel(itemname: string): string | null {
-    let m = itemname.match(/(?:DHI?-|DH-|IPC-)[\w-]+/i);
-    if (m) return m[0];
-    m = itemname.match(/\b(PFA\w+|PFB\w+|ST\d+\w+)\b/i);
-    if (m) return m[1];
-    m = itemname.match(/Dahua[- ]+([\w-]+)/i);
-    if (m) return m[1];
-    return null;
+  async function loadSyncStatus() {
+    const snap = await getDoc(doc(db, "settings", "mogulSync"));
+    if (snap.exists()) {
+      const d = snap.data();
+      setLastSyncTime(d.lastSyncedAt || null);
+      if (d.synced) setSyncResult({ synced: d.synced, skipped: d.skipped || 0, total: d.total || 0 });
+    }
   }
 
-  async function handleMogulSync() {
+  useEffect(() => { loadInventory(); loadNews(); loadHolds(); loadOrders(); loadBundles(); loadUsers(); loadSyncStatus(); }, []);
+
+  // --- Mogul Sync handler ---
+  async function handleRefreshSync() {
     setSyncing(true);
-    setSyncResult(null);
-    try {
-      // 1) API route-оос Mogul data авах
-      const res = await fetch("/api/mogul-sync", { method: "POST" });
-      const data = await res.json();
-      if (!data.success) {
-        alert("Mogul алдаа: " + (data.error || "Unknown") + "\n" + (data.details || ""));
-        return;
-      }
-
-      // 2) Client-side Firestore руу бичих
-      let synced = 0;
-      let skipped = 0;
-      for (const item of data.products) {
-        const model = extractModel(item.itemname);
-        if (!model) { skipped++; continue; }
-
-        await setDoc(doc(db, "inventory", model), {
-          name: item.itemname.replace(/^[^:]+:\s*Dahua\s*/i, "Dahua ").trim(),
-          stock: item.balancestock,
-          priceMNT: item.resprice,
-          mogulItemId: item.itemid,
-          mogulItemCode: item.itemcode,
-          mogulCategory: item.categoryname,
-          lastSyncedAt: Date.now(),
-        }, { merge: true });
-        synced++;
-      }
-
-      setSyncResult({ synced, skipped, total: data.products.length });
-      invalidateCache("inventory");
-      await loadInventory();
-    } catch (err) {
-      alert("Sync алдаа: " + String(err));
-    } finally {
-      setSyncing(false);
-    }
+    await loadSyncStatus();
+    invalidateCache("inventory");
+    await loadInventory();
+    setSyncing(false);
   }
 
   // --- Inventory handlers ---
@@ -274,24 +242,27 @@ export default function AdminPage() {
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div>
                     <h3 className="text-sm font-bold text-blue-900">🔄 Mogul Sync</h3>
-                    <p className="text-xs text-blue-600 mt-0.5">Mogul системээс бараа, үнэ, нөөцийг шинэчлэх</p>
+                    <p className="text-xs text-blue-600 mt-0.5">Терминалаас: <code className="bg-blue-100 px-1.5 py-0.5 rounded text-blue-800 font-mono">node scripts/mogul-sync.mjs</code></p>
+                    {lastSyncTime && (
+                      <p className="text-xs text-gray-500 mt-1">Сүүлд sync хийсэн: {new Date(lastSyncTime).toLocaleString("mn-MN")}</p>
+                    )}
                   </div>
                   <button
-                    onClick={handleMogulSync}
+                    onClick={handleRefreshSync}
                     disabled={syncing}
                     className="px-5 py-2.5 bg-blue-700 text-white rounded-xl text-sm font-bold hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {syncing ? (
-                      <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Sync хийж байна...</>
+                      <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Шинэчилж байна...</>
                     ) : (
-                      "🔄 Mogul-оос шинэчлэх"
+                      "🔄 Шинэчлэх"
                     )}
                   </button>
                 </div>
                 {syncResult && (
                   <div className="mt-3 bg-white rounded-lg p-3 text-sm">
-                    <span className="text-green-700 font-bold">✅ Амжилттай!</span>
-                    <span className="text-gray-600 ml-2">{syncResult.synced}/{syncResult.total} бүтээгдэхүүн шинэчлэгдсэн</span>
+                    <span className="text-green-700 font-bold">✅ Сүүлийн sync:</span>
+                    <span className="text-gray-600 ml-2">{syncResult.synced}/{syncResult.total} бүтээгдэхүүн</span>
                     {syncResult.skipped > 0 && <span className="text-orange-600 ml-2">({syncResult.skipped} алгассан)</span>}
                   </div>
                 )}
