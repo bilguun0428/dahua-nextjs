@@ -99,22 +99,50 @@ export default function AdminPage() {
   useEffect(() => { loadInventory(); loadNews(); loadHolds(); loadOrders(); loadBundles(); loadUsers(); }, []);
 
   // --- Mogul Sync handler ---
+  function extractModel(itemname: string): string | null {
+    let m = itemname.match(/(?:DHI?-|DH-|IPC-)[\w-]+/i);
+    if (m) return m[0];
+    m = itemname.match(/\b(PFA\w+|PFB\w+|ST\d+\w+)\b/i);
+    if (m) return m[1];
+    m = itemname.match(/Dahua[- ]+([\w-]+)/i);
+    if (m) return m[1];
+    return null;
+  }
+
   async function handleMogulSync() {
     setSyncing(true);
     setSyncResult(null);
     try {
-      const res = await fetch("/api/mogul-sync", {
-        method: "POST",
-        headers: { "x-admin-uid": "admin" },
-      });
+      // 1) API route-оос Mogul data авах
+      const res = await fetch("/api/mogul-sync", { method: "POST" });
       const data = await res.json();
-      if (data.success) {
-        setSyncResult({ synced: data.synced, skipped: data.skipped, total: data.total });
-        invalidateCache("inventory");
-        await loadInventory();
-      } else {
-        alert("Sync алдаа: " + (data.error || "Unknown error") + "\n" + (data.details || ""));
+      if (!data.success) {
+        alert("Mogul алдаа: " + (data.error || "Unknown") + "\n" + (data.details || ""));
+        return;
       }
+
+      // 2) Client-side Firestore руу бичих
+      let synced = 0;
+      let skipped = 0;
+      for (const item of data.products) {
+        const model = extractModel(item.itemname);
+        if (!model) { skipped++; continue; }
+
+        await setDoc(doc(db, "inventory", model), {
+          name: item.itemname.replace(/^[^:]+:\s*Dahua\s*/i, "Dahua ").trim(),
+          stock: item.balancestock,
+          priceMNT: item.resprice,
+          mogulItemId: item.itemid,
+          mogulItemCode: item.itemcode,
+          mogulCategory: item.categoryname,
+          lastSyncedAt: Date.now(),
+        }, { merge: true });
+        synced++;
+      }
+
+      setSyncResult({ synced, skipped, total: data.products.length });
+      invalidateCache("inventory");
+      await loadInventory();
     } catch (err) {
       alert("Sync алдаа: " + String(err));
     } finally {
