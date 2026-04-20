@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { mergeStockItems } from "@/lib/data";
 import { getCachedDocs } from "@/lib/firestore-cache";
 import { catMN, typeMN, QUICK_CATEGORIES } from "@/lib/types";
@@ -63,25 +63,55 @@ export default function Home() {
   const [onlyDiscount, setOnlyDiscount] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
+  // Бэлэн барааг Mogul API-аас шууд татах функц
+  const fetchInventoryFromMogul = useCallback(async () => {
+    try {
+      const res = await fetch("/api/mogul-products", { cache: "no-store" });
+      if (!res.ok) {
+        console.error("Mogul API алдаа:", res.status);
+        return;
+      }
+      const json = (await res.json()) as {
+        inventory?: (InventoryItem & { model: string })[];
+        count?: number;
+        total?: number;
+        skipped?: number;
+        syncedAt?: number;
+      };
+      const inv: Record<string, InventoryItem> = {};
+      (json.inventory || []).forEach((d) => {
+        inv[d.model] = { model: d.model, name: d.name, stock: d.stock, priceMNT: d.priceMNT };
+      });
+      setInventory(inv);
+      const ts = json.syncedAt ? new Date(json.syncedAt).toLocaleTimeString("mn-MN") : "";
+      console.log(
+        `%c✅ Бэлэн бараа амжилттай татлаа`,
+        "color:#16a34a;font-weight:bold",
+        `— ${json.count ?? Object.keys(inv).length} бараа (нийт ${json.total ?? "?"}, алгассан ${json.skipped ?? 0})${ts ? ` • ${ts}` : ""}`
+      );
+    } catch (err) {
+      console.error("Mogul fetch error:", err);
+    }
+  }, []);
+
+  // Анхны ачаалал: бусад static/Firestore data + Mogul inventory
   useEffect(() => {
     async function load() {
       try {
-        const [prodArr, invArr, specArr, holdsArr, bundleArr] = await Promise.all([
+        const [prodArr, specArr, holdsArr, bundleArr] = await Promise.all([
           getCachedDocs<Product & { id: string }>("products"),
-          getCachedDocs<InventoryItem & { id: string }>("inventory"),
           getCachedDocs<Partial<StockItem> & { id: string }>("stockSpecs"),
           getCachedDocs<HoldItem>("holds"),
           getCachedDocs<Bundle>("bundles"),
         ]);
         setProducts(prodArr as Product[]);
-        const inv: Record<string, InventoryItem> = {};
-        invArr.forEach((d) => (inv[d.id] = d as InventoryItem));
-        setInventory(inv);
         const specs: Record<string, Partial<StockItem>> = {};
         specArr.forEach((d) => (specs[d.id] = d as Partial<StockItem>));
         setStockSpecs(specs);
         setHolds(holdsArr as HoldItem[]);
         setBundles((bundleArr as Bundle[]).filter((b) => b.active));
+        // Mogul-аас шууд inventory татна
+        await fetchInventoryFromMogul();
       } catch (err) {
         console.error("Firebase load error:", err);
       } finally {
@@ -89,7 +119,22 @@ export default function Home() {
       }
     }
     load();
-  }, []);
+  }, [fetchInventoryFromMogul]);
+
+  // Tab/цонх идэвхжих бүрт Mogul API-аас дахин татна (бэлэн барааг шинэчилнэ)
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === "visible") {
+        fetchInventoryFromMogul();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", fetchInventoryFromMogul);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", fetchInventoryFromMogul);
+    };
+  }, [fetchInventoryFromMogul]);
 
   const allItems = useMemo(
     () => mergeStockItems(inventory, products, stockSpecs, holds),
@@ -422,17 +467,16 @@ export default function Home() {
                       key={s.model}
                       onClick={() => setSelectedItem(s)}
                       className={`bg-white rounded-xl border p-3 hover:shadow-lg cursor-pointer transition-all flex flex-col overflow-hidden ${s.discount ? "border-red-200 ring-1 ring-red-100" : "border-gray-100 hover:border-blue-200"}`}
-                      style={{ height: "290px" }}
                     >
                       {/* IMAGE AREA */}
-                      <div className="relative -mx-3 -mt-3 mb-2 h-20 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
+                      <div className="relative -mx-3 -mt-3 mb-2 h-32 bg-white flex items-center justify-center overflow-hidden rounded-t-xl">
                         {(() => {
                           const img = getProductImage(s.fullModel || s.model, s.name);
                           return img ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={img} alt={s.model} className="max-h-16 max-w-[65%] object-contain drop-shadow-sm" />
+                            <img src={img} alt={s.model} className="max-h-28 max-w-[80%] object-contain" />
                           ) : (
-                            <div className="text-3xl opacity-60">{getProductIcon(s.type, s.cat)}</div>
+                            <div className="text-4xl opacity-60">{getProductIcon(s.type, s.cat)}</div>
                           );
                         })()}
                         {/* BADGES */}
@@ -443,28 +487,21 @@ export default function Home() {
                           )}
                         </div>
                       </div>
-                      <div className="mb-1.5">
+                      <div className="mb-1">
                         <div className="text-[11px] font-bold text-gray-800 break-all leading-tight line-clamp-2">{s.fullModel || s.model}</div>
                         <div className="text-[10px] text-gray-400 truncate mt-0.5">{s.name}</div>
                       </div>
                       {s.discount && s.discountPrice ? (
-                        <div className="mb-1.5">
+                        <div className="mb-1">
                           <div className="flex items-baseline gap-1.5 flex-wrap">
                             <span className="text-base font-extrabold text-red-600">₮{s.discountPrice.toLocaleString()}</span>
                             <span className="text-[11px] text-gray-400 line-through">₮{s.priceMNT.toLocaleString()}</span>
                           </div>
                         </div>
                       ) : (
-                        <div className="text-base font-extrabold text-blue-700 mb-1.5">₮{s.priceMNT.toLocaleString()}</div>
+                        <div className="text-base font-extrabold text-blue-700 mb-1">₮{s.priceMNT.toLocaleString()}</div>
                       )}
-                      <div className="flex flex-wrap gap-1 min-h-[1.25rem]">
-                        {s.type && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold text-gray-500">{typeMN[s.type] || s.type}</span>}
-                        {s.mp && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold text-gray-500">{s.mp}MP</span>}
-                        {s.ir && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold text-gray-500">IR{s.ir}м</span>}
-                        {s.ip && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold text-gray-500">{s.ip}</span>}
-                      </div>
-                      <div className="flex-1 min-h-0"></div>
-                      <div className="flex items-center gap-1.5 mt-auto pt-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-1.5 mt-1" onClick={(e) => e.stopPropagation()}>
                         <div style={{ display: "flex", alignItems: "center", border: "1.5px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
                           <button
                             onClick={(e) => {

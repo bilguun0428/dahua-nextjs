@@ -3,11 +3,13 @@ import https from "node:https";
 import { doc, setDoc, collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-const MOGUL_BASE = "https://green.mogul.mn:8988";
+const MOGUL_BASE = process.env.MOGUL_BASE || "https://green.mogul.mn:8988";
+const MOGUL_RESELLER_USERNAME =
+  process.env.MOGUL_RESELLER_USERNAME || "bilguunnewportal";
 const LOGIN_BODY = JSON.stringify({
-  userid: "reseller",
-  password: "12345",
-  companyid: "ITZONE",
+  userid: process.env.MOGUL_USERID || "reseller",
+  password: process.env.MOGUL_PASSWORD || "12345",
+  companyid: process.env.MOGUL_COMPANYID || "ITZONE",
 });
 
 const agent = new https.Agent({ rejectUnauthorized: false });
@@ -68,7 +70,7 @@ export async function POST() {
 
     // 2) Products
     const prodRes = await httpsRequest(
-      `${MOGUL_BASE}/api/reseller/getResellerProducts?username=bilguunnewportal`,
+      `${MOGUL_BASE}/api/reseller/getResellerProducts?username=${encodeURIComponent(MOGUL_RESELLER_USERNAME)}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     const prodData = JSON.parse(prodRes.data);

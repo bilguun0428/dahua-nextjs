@@ -45,6 +45,13 @@ export function PromoPopup() {
     setPopup(null);
   };
 
+  useEffect(() => {
+    if (!popup) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [popup]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!popup) return null;
 
   return (
